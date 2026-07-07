@@ -120,6 +120,8 @@ function defaultPayload(jobType: JobType): unknown {
         channel: "telegram",
         recipientId: process.env.OWNER_TELEGRAM_ID ?? "",
       };
+    case "learning_weekly":
+      return {};
     default: {
       const _exhaustive: never = jobType;
       return _exhaustive;

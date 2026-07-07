@@ -1,5 +1,6 @@
 import { getDb } from "./db";
 import { parseProductCacAssumptions } from "../../../../packages/economics/cac";
+import type { RepoIntelligenceRecord } from "../../../../packages/repo-intelligence/types";
 import {
   getGlobalCacDefaults as loadGlobalCacDefaults,
   type GlobalCacDefaults,
@@ -32,6 +33,7 @@ export interface ProductRow {
   landingPath: string | null;
   contactCount: number;
   cacAssumptions: import("../../../../packages/economics/cac").ProductCacAssumptions;
+  intelligence: import("../../../../packages/repo-intelligence/types").RepoIntelligenceRecord | null;
 }
 
 export interface ApprovalItem {
@@ -176,10 +178,29 @@ export async function getProducts(): Promise<ProductRow[]> {
       cacAssumptions: parseProductCacAssumptions(
         (r.metadata as Record<string, unknown> | null)?.cac,
       ),
+      intelligence: parseIntelligence((r.metadata as Record<string, unknown> | null)?.intelligence),
     }));
   } finally {
     await db.sql.end();
   }
+}
+
+function parseIntelligence(value: unknown): RepoIntelligenceRecord | null {
+  if (!value || typeof value !== "object") return null;
+  const v = value as RepoIntelligenceRecord;
+  if (!v.auditedAt || !v.scores) return null;
+  return v;
+}
+
+export async function getRepoIntelligenceProducts(): Promise<ProductRow[]> {
+  const products = await getProducts();
+  return products
+    .filter((p) => p.intelligence)
+    .sort(
+      (a, b) =>
+        (b.intelligence?.scores.readinessScore ?? 0) -
+        (a.intelligence?.scores.readinessScore ?? 0),
+    );
 }
 
 export async function getGlobalCacDefaults(): Promise<GlobalCacDefaults> {

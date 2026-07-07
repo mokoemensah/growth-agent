@@ -33,6 +33,7 @@ import {
   routeLeadToProduct,
   type ProductRecord,
 } from "../../../../packages/product-router/index.js";
+import { routerWeightFromMetadata } from "../../../../packages/learning/index.js";
 import { isOutreachPaused } from "../../../../packages/system-state/index.js";
 import { runAgent } from "./agent-runner.js";
 import { incrementDailyEmailCounter, type Db } from "./db.js";
@@ -42,6 +43,13 @@ import {
   sendEmail,
 } from "./integrations.js";
 import { notify } from "./notify.js";
+import {
+  ensureSubjectLineExperiment,
+  pickSubjectVariant,
+  recordReplyConversion,
+  recordVariantImpression,
+  runWeeklyLearning,
+} from "../../../../packages/learning/index.js";
 
 // ---------------------------------------------------------------------------
 // Job dispatcher
@@ -52,7 +60,8 @@ export type JobType =
   | "score_leads"
   | "outreach"
   | "reply_triage"
-  | "daily_report";
+  | "daily_report"
+  | "learning_weekly";
 
 export interface JobRecord {
   id: string;
@@ -80,6 +89,9 @@ export async function dispatchJob(db: Db, job: JobRecord): Promise<void> {
         break;
       case "daily_report":
         await dailyReportJob(db, job.payload as { channel: string; recipientId: string }, job.id);
+        break;
+      case "learning_weekly":
+        await learningWeeklyJob(db, job.id);
         break;
       default: {
         const _exhaustive: never = job.jobType;
@@ -184,6 +196,7 @@ export async function scoreLeadsJob(
     priceCents: p.priceCents,
     billing: p.billing,
     icpRules: p.icpRules as ProductRecord["icpRules"],
+    routerWeight: routerWeightFromMetadata(p.metadata),
   }));
 
   const companies = payload.companyIds
@@ -382,6 +395,14 @@ export async function outreachJob(
     };
     const draft = CopywriterOutputSchema.parse(await runAgent(db, copyInput));
 
+    const experimentId = await ensureSubjectLineExperiment(
+      db,
+      campaignId,
+      draft.subject ?? sequence.subjectTemplate,
+    );
+    const variant = await pickSubjectVariant(db, experimentId);
+    const subject = variant?.subject ?? draft.subject ?? sequence.subjectTemplate;
+
     if (draft.requiresApproval) {
       await db.approvals.create({
         action: "send_email",
@@ -409,20 +430,25 @@ export async function outreachJob(
 
     const sent = await sendEmail({
       to: contact.email,
-      subject: draft.subject ?? sequence.subjectTemplate,
+      subject,
       text: draft.bodyText,
       html: draft.bodyHtml,
       tags: { campaignId, contactId: contact.id },
     });
+
+    if (variant) {
+      await recordVariantImpression(db, variant.id);
+    }
 
     await db.emailMessages.create({
       contactId: contact.id,
       campaignId,
       sequenceStep: enrollment.sequenceStep,
       direction: "outbound",
-      subject: draft.subject ?? sequence.subjectTemplate,
+      subject,
       bodyText: draft.bodyText,
       providerId: sent.messageId,
+      variantId: variant?.id,
     });
 
     await db.contacts.update(contact.id, {
@@ -437,11 +463,12 @@ export async function outreachJob(
       contactId: contact.id,
       campaignId,
       type: "email_sent",
-      subject: draft.subject,
+      subject,
       body: draft.bodyText,
       externalId: sent.messageId,
       agentId: "orchestrator",
       jobId,
+      metadata: variant ? { experimentVariantId: variant.id, variantLabel: variant.label } : {},
     });
 
     await incrementDailyEmailCounter(db);
@@ -506,6 +533,8 @@ export async function replyTriageJob(
         urgency: classification.urgency,
       },
     });
+
+    await recordReplyConversion(db, contact.id);
 
     switch (classification.suggestedNextAction) {
       case "suppress":
@@ -573,6 +602,17 @@ export async function replyTriageJob(
 }
 
 // ---------------------------------------------------------------------------
+// Weekly — Self-learning loop (strategist + CAC + router weights + A/B winners)
+// ---------------------------------------------------------------------------
+
+export async function learningWeeklyJob(db: Db, jobId: string): Promise<void> {
+  const result = await runWeeklyLearning(db, jobId);
+  console.log(
+    `[learning] CAC:${result.cacProductsUpdated} router:${result.routerWeightsUpdated} experiments:${result.experimentsPromoted}`,
+  );
+}
+
+// ---------------------------------------------------------------------------
 // 20:30 — Daily report
 // ---------------------------------------------------------------------------
 
@@ -623,6 +663,7 @@ export const DAILY_CRON_SCHEDULE = {
   outreach: "0 8 * * *",
   replyTriage: "*/30 8-20 * * *",
   dailyReport: "30 20 * * *",
+  learningWeekly: "0 7 * * 0",
 } as const;
 
 export async function enqueueDailyJobs(db: Db, campaignId: string): Promise<void> {
@@ -658,6 +699,16 @@ export async function enqueueDailyJobs(db: Db, campaignId: string): Promise<void
     payload: { channel: "telegram", recipientId: process.env.OWNER_TELEGRAM_ID ?? "" },
     scheduledFor: cronNext(DAILY_CRON_SCHEDULE.dailyReport),
   });
+
+  if (new Date().getUTCDay() === 0) {
+    const week = today.slice(0, 7);
+    await db.jobs.enqueue({
+      jobType: "learning_weekly",
+      idempotencyKey: `learning_weekly:${week}`,
+      payload: {},
+      scheduledFor: cronNext(DAILY_CRON_SCHEDULE.learningWeekly),
+    });
+  }
 }
 
 function cronNext(_expr: string): Date {

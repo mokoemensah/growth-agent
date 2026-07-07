@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "bash -c 'set -e; cd ../..; npm install'",
+  "buildCommand": "echo 'api ready'",
+  "outputDirectory": "public",
+  "rewrites": [
+    { "source": "/health", "destination": "/api/health" },
+    { "source": "/webhooks/:path*", "destination": "/api/webhooks/:path*" },
+    { "source": "/api/:path*", "destination": "/api/:path*" }
+  ],
+  "crons": [{ "path": "/api/cron/daily", "schedule": "0 6 * * *" }]
+}

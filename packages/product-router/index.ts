@@ -9,6 +9,8 @@ export interface ProductRecord {
   priceCents: number | null;
   billing: string | null;
   icpRules: IcpRules;
+  /** Learned multiplier from close rates (default 1) */
+  routerWeight?: number;
 }
 
 export interface IcpRules {
@@ -93,7 +95,9 @@ export function scoreProductFit(input: RouteInput, product: ProductRecord): Rout
     reasons.push("Excluded industry");
   }
 
-  return { product, score: Math.max(0, Math.min(100, score)), reasons };
+  const weight = product.routerWeight ?? 1;
+  const weighted = Math.round(score * weight);
+  return { product, score: Math.max(0, Math.min(100, weighted)), reasons };
 }
 
 export function routeLeadToProduct(

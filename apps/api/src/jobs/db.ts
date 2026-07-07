@@ -69,6 +69,7 @@ interface ProductsRepo {
   updateStatus(id: string, status: Product["status"]): Promise<void>;
   updateLaymanPitch(id: string, laymanPitch: string | null): Promise<void>;
   updateCacAssumptions(id: string, assumptions: Record<string, unknown>): Promise<void>;
+  updateIntelligence(id: string, intelligence: Record<string, unknown>): Promise<void>;
   delete(id: string): Promise<void>;
   upsertFromCatalog(input: CatalogProductInput): Promise<Product>;
 }
@@ -206,6 +207,7 @@ interface CreateEmailInput {
   providerId?: string;
   threadId?: string | null;
   repliedAt?: Date;
+  variantId?: string;
 }
 
 interface InboundQueueInput {
@@ -700,6 +702,15 @@ export function createDb(databaseUrl: string): Db {
       `;
     },
 
+    async updateIntelligence(id, intelligence) {
+      const product = await products.get(id);
+      const metadata = { ...product.metadata, intelligence };
+      await sql`
+        UPDATE products SET metadata = ${sql.json(metadata as JSONValue)}, updated_at = now()
+        WHERE id = ${id}
+      `;
+    },
+
     async delete(id) {
       await sql`DELETE FROM products WHERE id = ${id}`;
     },
@@ -842,7 +853,7 @@ export function createDb(databaseUrl: string): Db {
       >`
         INSERT INTO email_messages (
           contact_id, campaign_id, sequence_step, direction,
-          subject, body_text, body_html, provider_id, thread_id, replied_at, sent_at
+          subject, body_text, body_html, provider_id, thread_id, variant_id, replied_at, sent_at
         ) VALUES (
           ${input.contactId},
           ${input.campaignId ?? null},
@@ -853,6 +864,7 @@ export function createDb(databaseUrl: string): Db {
           ${input.bodyHtml ?? null},
           ${input.providerId ?? null},
           ${input.threadId ?? null},
+          ${input.variantId ?? null},
           ${input.repliedAt ?? null},
           ${input.direction === "outbound" ? new Date() : null}
         )

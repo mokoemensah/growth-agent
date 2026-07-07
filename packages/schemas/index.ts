@@ -318,11 +318,14 @@ export const DailyReportJobPayloadSchema = z.object({
   recipientId: z.string(),
 });
 
+export const LearningWeeklyJobPayloadSchema = z.object({}).default({});
+
 export type LeadGenJobPayload = z.infer<typeof LeadGenJobPayloadSchema>;
 export type ScoreLeadsJobPayload = z.infer<typeof ScoreLeadsJobPayloadSchema>;
 export type OutreachJobPayload = z.infer<typeof OutreachJobPayloadSchema>;
 export type ReplyTriageJobPayload = z.infer<typeof ReplyTriageJobPayloadSchema>;
 export type DailyReportJobPayload = z.infer<typeof DailyReportJobPayloadSchema>;
+export type LearningWeeklyJobPayload = z.infer<typeof LearningWeeklyJobPayloadSchema>;
 
 // ---------------------------------------------------------------------------
 // Agent dispatch union

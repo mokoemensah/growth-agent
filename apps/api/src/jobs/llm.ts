@@ -47,7 +47,7 @@ export async function llmComplete(input: LlmCompleteInput): Promise<LlmCompleteR
       "X-Title": "Growth Agent",
     },
     body: JSON.stringify({
-      model: `openrouter/${input.model}`,
+      model: input.model.startsWith("openrouter/") ? input.model : input.model,
       messages: [
         { role: "system", content: input.system },
         { role: "user", content: input.user },

@@ -4,6 +4,7 @@ const links = [
   { href: "/dashboard", label: "Pipeline" },
   { href: "/dashboard/products", label: "Products" },
   { href: "/dashboard/cac", label: "CAC" },
+  { href: "/dashboard/repo-intelligence", label: "Repos" },
   { href: "/dashboard/activity", label: "Activity" },
 ];
 

@@ -19,6 +19,7 @@ export {
   getProductBySlug,
   getActiveProducts,
   getGlobalCacDefaults,
+  getRepoIntelligenceProducts,
   groupContactsByColumn,
   PIPELINE_COLUMNS,
 } from "./queries";
