@@ -4,11 +4,11 @@ export type ModelTask = "repo_audit" | "pitch" | "security" | "strategy";
 export function modelFor(task: ModelTask): string {
   switch (task) {
     case "repo_audit":
-      return process.env.REPO_AUDIT_MODEL ?? "google/gemini-2.0-flash-001";
+      return process.env.REPO_AUDIT_MODEL ?? "openai/gpt-4o-mini";
     case "pitch":
-      return process.env.PITCH_MODEL ?? "google/gemini-2.0-flash-001";
+      return process.env.PITCH_MODEL ?? "openai/gpt-4o-mini";
     case "security":
-      return process.env.SECURITY_MODEL ?? process.env.REPO_AUDIT_MODEL ?? "google/gemini-2.0-flash-001";
+      return process.env.SECURITY_MODEL ?? process.env.REPO_AUDIT_MODEL ?? "openai/gpt-4o-mini";
     case "strategy":
       return process.env.STRATEGY_MODEL ?? "anthropic/claude-sonnet-4";
     default: {

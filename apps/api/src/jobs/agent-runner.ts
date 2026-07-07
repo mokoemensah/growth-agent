@@ -13,10 +13,10 @@ import { loadDocs } from "./load-docs.js";
 import { llmComplete } from "./llm.js";
 
 const MODEL_BY_AGENT: Record<AgentInput["agentId"], string> = {
-  researcher: "google/gemini-2.0-flash-001",
-  lead_scorer: "google/gemini-2.0-flash-001",
-  copywriter: "google/gemini-2.0-flash-001",
-  reply_classifier: "google/gemini-2.0-flash-001",
+  researcher: "openai/gpt-4o-mini",
+  lead_scorer: "openai/gpt-4o-mini",
+  copywriter: "openai/gpt-4o-mini",
+  reply_classifier: "openai/gpt-4o-mini",
   qualifier: "anthropic/claude-sonnet-4",
   strategist: "anthropic/claude-sonnet-4",
 };
