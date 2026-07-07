@@ -13,7 +13,6 @@ const REQUIRED_LIVE = [
   "OPENROUTER_API_KEY",
   "RESEND_API_KEY",
   "RESEND_FROM_EMAIL",
-  "APOLLO_API_KEY",
 ] as const;
 
 async function main(): Promise<void> {
@@ -44,8 +43,17 @@ async function main(): Promise<void> {
         console.log(`✅ ${key}`);
       }
     }
+
+    if (process.env.SERPER_API_KEY) {
+      console.log("✅ Lead source: Serper (Google Places)");
+    } else if (process.env.APOLLO_API_KEY) {
+      console.log("✅ Lead source: Apollo");
+    } else {
+      console.log("❌ Lead source — set SERPER_API_KEY or APOLLO_API_KEY");
+      failed += 1;
+    }
   } else {
-    console.log("\n⏭️  Skipping Resend/Apollo/OpenRouter (MOCK_INTEGRATIONS=true)");
+    console.log("\n⏭️  Skipping Resend/Serper/OpenRouter (MOCK_INTEGRATIONS=true)");
   }
 
   const url = process.env.DATABASE_URL;

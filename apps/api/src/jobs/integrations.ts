@@ -2,6 +2,7 @@ import type { IcpFilter } from "../../../../packages/schemas/index.js";
 import { getHeroIcpFilter } from "../../../../packages/hero-config/index.js";
 import type { Db } from "./db.js";
 import type { InboundReply } from "./types.js";
+import { serperSearchProspects } from "./serper.js";
 
 const APOLLO_BASE = "https://api.apollo.io/api/v1";
 const RESEND_BASE = "https://api.resend.com";
@@ -50,8 +51,20 @@ function requireEnv(name: string): string {
 
 export const enrichCompany = {
   async searchProspects(filter: IcpFilter, limit: number): Promise<Prospect[]> {
-    if (isMockMode() || !process.env.APOLLO_API_KEY) {
+    if (isMockMode()) {
       return mockProspects(limit);
+    }
+
+    // Prefer Serper (cheap Google Places search) when configured;
+    // fall back to Apollo for structured B2B contacts.
+    if (process.env.SERPER_API_KEY) {
+      return serperSearchProspects(filter, limit);
+    }
+
+    if (!process.env.APOLLO_API_KEY) {
+      throw new Error(
+        "No lead source configured: set SERPER_API_KEY or APOLLO_API_KEY (or MOCK_INTEGRATIONS=true)",
+      );
     }
 
     const apiKey = requireEnv("APOLLO_API_KEY");
