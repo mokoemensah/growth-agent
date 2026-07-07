@@ -1,10 +1,14 @@
 #!/usr/bin/env tsx
 /** Run all SQL migrations in order */
 
+import { config } from "dotenv";
+import { resolve } from "node:path";
 import { readFile, readdir } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import postgres from "postgres";
+
+config({ path: resolve(process.cwd(), ".env") });
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = join(__dirname, "../db/migrations");

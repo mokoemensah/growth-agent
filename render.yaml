@@ -12,7 +12,19 @@ services:
       - key: DATABASE_URL
         sync: false
       - key: MOCK_INTEGRATIONS
+        sync: false
+      - key: HERO_PRODUCT_SLUG
+        value: hvac-receptionist-agent
+      - key: HERO_MODE
         value: "true"
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        sync: false
+      - key: APOLLO_API_KEY
+        sync: false
       - key: CRON_ENABLED
         value: "true"
       - key: NODE_ENV

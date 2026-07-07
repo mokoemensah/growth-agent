@@ -34,7 +34,8 @@ import {
   type ProductRecord,
 } from "../../../../packages/product-router/index.js";
 import { routerWeightFromMetadata } from "../../../../packages/learning/index.js";
-import { isOutreachPaused } from "../../../../packages/system-state/index.js";
+import { getHeroIcpFilter } from "../../../../packages/hero-config/index.js";
+import { getDailySendCap, isOutreachPaused } from "../../../../packages/system-state/index.js";
 import { runAgent } from "./agent-runner.js";
 import { incrementDailyEmailCounter, type Db } from "./db.js";
 import {
@@ -668,11 +669,13 @@ export const DAILY_CRON_SCHEDULE = {
 
 export async function enqueueDailyJobs(db: Db, campaignId: string): Promise<void> {
   const today = new Date().toISOString().slice(0, 10);
+  const icpFilter = getHeroIcpFilter();
+  const sendCap = await getDailySendCap(db);
 
   await db.jobs.enqueue({
     jobType: "lead_gen",
     idempotencyKey: `lead_gen:${today}`,
-    payload: { campaignId, targetCount: 20, icpFilter: {} },
+    payload: { campaignId, targetCount: 20, icpFilter },
     scheduledFor: cronNext(DAILY_CRON_SCHEDULE.leadGen),
   });
 
@@ -688,7 +691,7 @@ export async function enqueueDailyJobs(db: Db, campaignId: string): Promise<void
     await db.jobs.enqueue({
       jobType: "outreach",
       idempotencyKey: `outreach:${today}:${campaign.slug}`,
-      payload: { campaignId: campaign.id, batchSize: 10, dryRun: false },
+      payload: { campaignId: campaign.id, batchSize: sendCap, dryRun: false },
       scheduledFor: cronNext(DAILY_CRON_SCHEDULE.outreach),
     });
   }

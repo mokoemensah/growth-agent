@@ -1,4 +1,5 @@
 import type { IcpFilter } from "../../../../packages/schemas/index.js";
+import { getHeroIcpFilter } from "../../../../packages/hero-config/index.js";
 import type { Db } from "./db.js";
 import type { InboundReply } from "./types.js";
 
@@ -58,13 +59,14 @@ export const enrichCompany = {
     const body: Record<string, unknown> = {
       page: 1,
       per_page: Math.min(limit, 25),
-      person_titles: filter.titles ?? [
+      person_titles: filter.titles ?? getHeroIcpFilter().titles ?? [
         "Founder",
         "CEO",
         "Head of Operations",
         "Director of Client Services",
       ],
-      q_organization_keyword_tags: filter.industries ?? ["seo", "marketing agency"],
+      q_organization_keyword_tags:
+        filter.industries ?? getHeroIcpFilter().industries ?? ["seo", "marketing agency"],
     };
 
     if (filter.minEmployees) body.organization_num_employees_ranges = [`${filter.minEmployees},${filter.maxEmployees ?? 500}`];
@@ -158,40 +160,40 @@ interface ApolloOrganization {
 function mockProspects(limit: number): Prospect[] {
   const samples = [
     {
-      externalId: "mock-1",
-      companyName: "BrightEdge SEO",
-      domain: "brightedge-seo.example",
-      industry: "SEO Agency",
+      externalId: "mock-hvac-1",
+      companyName: "Summit Comfort HVAC",
+      domain: "summitcomfort-hvac.example",
+      industry: "HVAC",
+      employeeCount: 24,
+      country: "US",
+      contactEmail: "mike.owner@summitcomfort-hvac.example",
+      contactFirstName: "Mike",
+      contactLastName: "Torres",
+      contactTitle: "Owner",
+    },
+    {
+      externalId: "mock-hvac-2",
+      companyName: "CoolBreeze Home Services",
+      domain: "coolbreeze-hs.example",
+      industry: "Home Services",
+      employeeCount: 18,
+      country: "US",
+      contactEmail: "lisa@coolsbreeze-hs.example",
+      contactFirstName: "Lisa",
+      contactLastName: "Nguyen",
+      contactTitle: "General Manager",
+    },
+    {
+      externalId: "mock-hvac-3",
+      companyName: "Arctic Air Mechanical",
+      domain: "arcticair.example",
+      industry: "HVAC",
       employeeCount: 42,
       country: "US",
-      contactEmail: "sarah.ops@brightedge-seo.example",
-      contactFirstName: "Sarah",
-      contactLastName: "Chen",
-      contactTitle: "Head of Operations",
-    },
-    {
-      externalId: "mock-2",
-      companyName: "RankFlow Digital",
-      domain: "rankflow.example",
-      industry: "Marketing Automation",
-      employeeCount: 28,
-      country: "UK",
-      contactEmail: "james@rankflow.example",
-      contactFirstName: "James",
-      contactLastName: "Okonkwo",
-      contactTitle: "Founder",
-    },
-    {
-      externalId: "mock-3",
-      companyName: "SearchPilot Agency",
-      domain: "searchpilot.example",
-      industry: "SEO Agency",
-      employeeCount: 65,
-      country: "US",
-      contactEmail: "maya@searchpilot.example",
-      contactFirstName: "Maya",
-      contactLastName: "Patel",
-      contactTitle: "CEO",
+      contactEmail: "dan@arcticair.example",
+      contactFirstName: "Dan",
+      contactLastName: "Foster",
+      contactTitle: "Operations Manager",
     },
   ];
   return samples.slice(0, limit);
