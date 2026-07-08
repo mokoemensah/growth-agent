@@ -1,16 +1,24 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { dirname } from "node:path";
+
 import type { AgentInput, AgentOutput } from "../../../../packages/schemas/index.js";
 import {
   AgentInputSchema,
   CopywriterOutputSchema,
   LeadScorerOutputSchema,
   QualifierOutputSchema,
-  ReplyClassifierOutputSchema,
   ResearcherOutputSchema,
   StrategistOutputSchema,
 } from "../../../../packages/schemas/index.js";
 import type { Db } from "./db.js";
 import { loadDocs } from "./load-docs.js";
 import { llmComplete } from "./llm.js";
+import { coerceReplyClassifierOutput } from "./normalize-reply-classifier.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const EXAMPLES_DIR = join(__dirname, "../../../../packages/schemas/examples");
 
 const MODEL_BY_AGENT: Record<AgentInput["agentId"], string> = {
   researcher: "openai/gpt-4o-mini",
@@ -31,7 +39,7 @@ export async function runAgent<T extends AgentInput>(
   const docs = await loadDocs(["ICP", "OFFER", "VOICE", "PLAYBOOK", "RATE_CARD"], productSlug);
 
   const context = await buildContext(db, parsed);
-  const systemPrompt = buildSystemPrompt(parsed.agentId, docs);
+  const systemPrompt = await buildSystemPrompt(parsed.agentId, docs);
   const userPrompt = JSON.stringify({ input: parsed, context }, null, 2);
 
   const model = MODEL_BY_AGENT[parsed.agentId];
@@ -42,7 +50,11 @@ export async function runAgent<T extends AgentInput>(
     responseFormat: "json",
   });
 
-  const output = parseAgentOutput(parsed.agentId, raw);
+  const output = parseAgentOutput(
+    parsed.agentId,
+    raw,
+    parsed.agentId === "reply_classifier" ? parsed.inboundBody : undefined,
+  );
 
   await db.auditLog.create({
     agentId: parsed.agentId,
@@ -63,7 +75,11 @@ export async function runAgent<T extends AgentInput>(
   return output;
 }
 
-function parseAgentOutput(agentId: AgentInput["agentId"], raw: { json: unknown }): AgentOutput {
+function parseAgentOutput(
+  agentId: AgentInput["agentId"],
+  raw: { json: unknown },
+  inboundBody?: string,
+): AgentOutput {
   switch (agentId) {
     case "researcher":
       return ResearcherOutputSchema.parse(raw.json);
@@ -72,7 +88,7 @@ function parseAgentOutput(agentId: AgentInput["agentId"], raw: { json: unknown }
     case "copywriter":
       return CopywriterOutputSchema.parse(raw.json);
     case "reply_classifier":
-      return ReplyClassifierOutputSchema.parse(raw.json);
+      return coerceReplyClassifierOutput(raw.json, inboundBody);
     case "qualifier":
       return QualifierOutputSchema.parse(raw.json);
     case "strategist":
@@ -84,8 +100,11 @@ function parseAgentOutput(agentId: AgentInput["agentId"], raw: { json: unknown }
   }
 }
 
-function buildSystemPrompt(agentId: AgentInput["agentId"], docs: Record<string, string>): string {
-  return [
+async function buildSystemPrompt(
+  agentId: AgentInput["agentId"],
+  docs: Record<string, string>,
+): Promise<string> {
+  const lines = [
     `You are the ${agentId} agent in an autonomous marketing/sales system.`,
     "Return ONLY valid JSON matching the output schema. No markdown fences.",
     "Never invent pricing — use RATE_CARD only.",
@@ -101,7 +120,34 @@ function buildSystemPrompt(agentId: AgentInput["agentId"], docs: Record<string, 
     docs.PLAYBOOK ?? "",
     "--- RATE CARD ---",
     docs.RATE_CARD ?? "",
-  ].join("\n");
+  ];
+
+  if (agentId === "reply_classifier") {
+    const exampleOutput = await loadExampleOutput("reply_classifier");
+    lines.push(
+      "",
+      "--- REQUIRED OUTPUT JSON (use these exact field names) ---",
+      JSON.stringify(exampleOutput, null, 2),
+      "",
+      "Rules:",
+      "- classification must be one of: interested, question, objection, not_now, referral, unsubscribe, auto_reply, bounce, spam, unknown",
+      "- suggestedNextAction must be one of: book_meeting, send_follow_up, escalate_to_human, add_to_nurture, mark_lost, suppress, no_action",
+      "- urgency must be one of: high, medium, low",
+      "- Do NOT use keys like response, intent, or positive/negative as classification",
+    );
+  }
+
+  return lines.join("\n");
+}
+
+async function loadExampleOutput(agentId: string): Promise<unknown> {
+  try {
+    const raw = await readFile(join(EXAMPLES_DIR, `${agentId}.example.json`), "utf-8");
+    const example = JSON.parse(raw) as { output: unknown };
+    return example.output;
+  } catch {
+    return {};
+  }
 }
 
 async function buildContext(db: Db, input: AgentInput): Promise<Record<string, unknown>> {

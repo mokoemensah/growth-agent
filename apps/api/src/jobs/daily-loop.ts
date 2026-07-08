@@ -18,6 +18,7 @@ import type {
   LeadScorerInput,
   OutreachJobPayload,
   ReplyClassifierInput,
+  ReplyClassifierOutput,
   ReplyTriageJobPayload,
   ResearcherInput,
   ScoreLeadsJobPayload,
@@ -25,7 +26,6 @@ import type {
 import {
   CopywriterOutputSchema,
   LeadScorerOutputSchema,
-  ReplyClassifierOutputSchema,
   ResearcherOutputSchema,
 } from "../../../../packages/schemas/index.js";
 import { checkPolicy } from "../../../../packages/policies/index.js";
@@ -513,19 +513,19 @@ export async function replyTriageJob(
     if (!contact) continue;
 
     const existing = await db.emailMessages.findByProviderId(reply.providerId);
-    if (existing) continue;
+    const inbound =
+      existing ??
+      (await db.emailMessages.create({
+        contactId: contact.id,
+        direction: "inbound",
+        subject: reply.subject,
+        bodyText: reply.bodyText,
+        providerId: reply.providerId,
+        threadId: reply.threadId,
+        repliedAt: new Date(),
+      }));
 
-    const inbound = await db.emailMessages.create({
-      contactId: contact.id,
-      direction: "inbound",
-      subject: reply.subject,
-      bodyText: reply.bodyText,
-      providerId: reply.providerId,
-      threadId: reply.threadId,
-      repliedAt: new Date(),
-    });
-
-    const thread = await db.emailMessages.findThread(reply.threadId);
+    const thread = await db.emailMessages.findThread(reply.threadId ?? inbound.threadId);
 
     const classifyInput: ReplyClassifierInput = {
       agentId: "reply_classifier",
@@ -539,9 +539,10 @@ export async function replyTriageJob(
       })),
       jobId,
     };
-    const classification = ReplyClassifierOutputSchema.parse(
-      await runAgent(db, classifyInput),
-    );
+    const classification = (await runAgent(
+      db,
+      classifyInput,
+    )) as ReplyClassifierOutput;
 
     await db.activities.create({
       contactId: contact.id,

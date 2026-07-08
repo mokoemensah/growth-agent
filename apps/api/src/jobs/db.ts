@@ -413,6 +413,9 @@ export function createDb(databaseUrl: string): Db {
   const sql = postgres(databaseUrl, {
     ssl: databaseUrl.includes("neon.tech") ? "require" : undefined,
     transform: { undefined: null },
+    connect_timeout: 10,
+    idle_timeout: 20,
+    max: process.env.VERCEL ? 1 : 10,
   });
 
   const companies: CompaniesRepo = {

@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { BRAND } from "@/lib/brand";
 
 export const metadata: Metadata = {
-  title: "Growth Agent",
-  description: "Autonomous marketing & sales control plane",
+  title: BRAND.name,
+  description: `${BRAND.tagline} — autonomous revenue for local service businesses`,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

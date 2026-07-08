@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BRAND } from "@/lib/brand";
 
 const links = [
   { href: "/dashboard", label: "Pipeline" },
@@ -14,7 +15,7 @@ export function DashboardNav() {
       <div className="mx-auto flex max-w-[1600px] items-center justify-between px-6 py-4">
         <div className="flex items-center gap-8">
           <Link href="/dashboard" className="text-lg font-semibold tracking-tight">
-            Growth Agent
+            {BRAND.name}
           </Link>
           <nav className="flex gap-4">
             {links.map((l) => (

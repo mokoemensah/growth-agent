@@ -2,9 +2,13 @@
   "name": "growth-agent",
   "private": true,
   "type": "module",
+  "workspaces": [
+    "apps/dashboard"
+  ],
   "scripts": {
     "db:migrate": "tsx scripts/migrate.ts",
     "go-live:check": "tsx scripts/go-live-check.ts",
+    "setup:makola": "tsx scripts/setup-makola.ts",
     "go-live:hero": "tsx scripts/go-live-hero.ts",
     "vapi:numbers": "tsx scripts/provision-vapi-numbers.ts",
     "vapi:setup-sales": "tsx scripts/setup-vapi-sales.ts",

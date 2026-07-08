@@ -66,10 +66,7 @@ export async function llmComplete(input: LlmCompleteInput): Promise<LlmCompleteR
   const content = data.choices?.[0]?.message?.content ?? "{}";
   const parsed = JSON.parse(stripMarkdownFences(content)) as unknown;
 
-  const json =
-    typeof parsed === "object" && parsed !== null && "output" in parsed
-      ? (parsed as { output: unknown }).output
-      : parsed;
+  const json = unwrapAgentJson(parsed);
 
   return {
     json,
@@ -125,4 +122,22 @@ async function mockComplete(input: LlmCompleteInput): Promise<LlmCompleteResult>
 
 function stripMarkdownFences(text: string): string {
   return text.replace(/^```(?:json)?\n?/i, "").replace(/\n?```$/i, "").trim();
+}
+
+function unwrapAgentJson(parsed: unknown): unknown {
+  let current = parsed;
+  for (let depth = 0; depth < 3; depth++) {
+    if (typeof current !== "object" || current === null) break;
+    const obj = current as Record<string, unknown>;
+    if ("output" in obj) {
+      current = obj.output;
+      continue;
+    }
+    if ("response" in obj) {
+      current = obj.response;
+      continue;
+    }
+    break;
+  }
+  return current;
 }

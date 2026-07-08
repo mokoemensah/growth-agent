@@ -18,22 +18,55 @@ export function createApp(): Hono {
 
   app.use("/api/*", cors());
 
-  app.get("/health", async (c) => {
+  const healthHandler = async (c: {
+    json: (body: unknown, status?: number) => Response;
+  }) => {
+    const base = {
+      mock: process.env.MOCK_INTEGRATIONS === "true",
+      runtime: process.env.VERCEL ? "vercel" : "node",
+      timestamp: new Date().toISOString(),
+    };
+
     try {
-      const db = getDb();
-      await db.sql`SELECT 1`;
-      const paused = await isOutreachPaused(db);
+      const db = await Promise.race([
+        (async () => {
+          const instance = getDb();
+          await instance.sql`SELECT 1`;
+          const paused = await isOutreachPaused(instance);
+          return { outreachPaused: paused, db: "ok" as const };
+        })(),
+        new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error("db_timeout")), 4_000);
+        }),
+      ]);
+
+      return c.json({ ok: true, ...base, ...db });
+    } catch (err) {
       return c.json({
         ok: true,
-        outreachPaused: paused,
-        mock: process.env.MOCK_INTEGRATIONS === "true",
-        runtime: process.env.VERCEL ? "vercel" : "node",
-        timestamp: new Date().toISOString(),
+        ...base,
+        db: "timeout",
+        warning: String(err),
       });
-    } catch (err) {
-      return c.json({ ok: false, error: String(err) }, 503);
     }
-  });
+  };
+
+  app.get("/health", healthHandler);
+  app.get("/api/health", healthHandler);
+
+  app.get("/", (c) =>
+    c.json({
+      name: "Revenue OS API",
+      health: "/health",
+    }),
+  );
+
+  app.get("/api", (c) =>
+    c.json({
+      name: "Revenue OS API",
+      health: "/api/health",
+    }),
+  );
 
   app.post("/webhooks/resend", async (c) => {
     const db = getDb();

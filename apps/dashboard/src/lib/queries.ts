@@ -56,6 +56,12 @@ export interface DashboardMetrics {
   totalContacts: number;
 }
 
+export interface WeeklyMetrics {
+  emailsSent: number;
+  replies: number;
+  meetingsBooked: number;
+}
+
 export interface ActivityRow {
   id: string;
   type: string;
@@ -287,6 +293,29 @@ export async function getMetrics(): Promise<DashboardMetrics> {
       meetingsBooked: Number(activity?.meetings ?? 0),
       pendingApprovals: Number(counts?.pending ?? 0),
       totalContacts: Number(counts?.contacts ?? 0),
+    };
+  } finally {
+    await db.sql.end();
+  }
+}
+
+export async function getWeeklyMetrics(): Promise<WeeklyMetrics> {
+  const db = getDb();
+  try {
+    const [activity] = await db.sql<
+      { emails_sent: string; replies: string; meetings: string }[]
+    >`
+      SELECT
+        COUNT(*) FILTER (WHERE type = 'email_sent')::text AS emails_sent,
+        COUNT(*) FILTER (WHERE type = 'email_replied')::text AS replies,
+        COUNT(*) FILTER (WHERE type = 'meeting_booked')::text AS meetings
+      FROM activities
+      WHERE occurred_at >= date_trunc('week', now())
+    `;
+    return {
+      emailsSent: Number(activity?.emails_sent ?? 0),
+      replies: Number(activity?.replies ?? 0),
+      meetingsBooked: Number(activity?.meetings ?? 0),
     };
   } finally {
     await db.sql.end();

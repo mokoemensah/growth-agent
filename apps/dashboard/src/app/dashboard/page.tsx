@@ -4,11 +4,13 @@ import {
   getPendingApprovals,
   getPipelineContacts,
   getSystemStatus,
+  getWeeklyMetrics,
   groupContactsByColumn,
   PIPELINE_COLUMNS,
 } from "@/lib/db";
 import { ApprovalQueue } from "@/components/approval-queue";
 import { DashboardNav } from "@/components/dashboard-nav";
+import { GoalTracker } from "@/components/goal-tracker";
 import { KillSwitch } from "@/components/kill-switch";
 import { MetricsHeader } from "@/components/metrics-header";
 import { PipelineBoard } from "@/components/pipeline-board";
@@ -23,10 +25,11 @@ interface PageProps {
 export default async function DashboardHomePage({ searchParams }: PageProps) {
   const { product: productSlug } = await searchParams;
 
-  const [contacts, approvals, metrics, system, products] = await Promise.all([
+  const [contacts, approvals, metrics, weekly, system, products] = await Promise.all([
     getPipelineContacts(productSlug),
     getPendingApprovals(),
     getMetrics(),
+    getWeeklyMetrics(),
     getSystemStatus(),
     getActiveProducts(),
   ]);
@@ -49,7 +52,10 @@ export default async function DashboardHomePage({ searchParams }: PageProps) {
         </div>
         <div className="grid gap-8 xl:grid-cols-[1fr_340px]">
           <PipelineBoard columns={PIPELINE_COLUMNS} grouped={grouped} />
-          <ApprovalQueue approvals={approvals} />
+          <div className="space-y-6">
+            <GoalTracker weekly={weekly} />
+            <ApprovalQueue approvals={approvals} />
+          </div>
         </div>
       </main>
     </div>
