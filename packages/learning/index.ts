@@ -1,4 +1,5 @@
 export {
+  applySubjectVariant,
   ensureSubjectLineExperiment,
   pickSubjectVariant,
   recordVariantImpression,

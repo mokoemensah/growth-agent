@@ -14,9 +14,27 @@ export interface SubjectVariant {
 
 const DEFAULT_SUBJECT_VARIANTS = (base: string) => [
   { label: "A", subject: base },
-  { label: "B", subject: `Quick question — ${base.replace(/^(re:\s*)?/i, "")}` },
-  { label: "C", subject: `${base.replace(/\.$/, "")}?` },
+  { label: "B", subject: applySubjectVariant("B", base) },
+  { label: "C", subject: applySubjectVariant("C", base) },
 ];
+
+/**
+ * Apply a variant's style to a per-contact subject. Variants store a style,
+ * not a literal subject — the copywriter personalizes subjects per contact,
+ * so reusing a stored subject would send one company's name to everyone.
+ */
+export function applySubjectVariant(label: string, base: string): string {
+  const trimmed = base.trim();
+  switch (label) {
+    case "B":
+      if (/^quick question/i.test(trimmed)) return trimmed;
+      return `Quick question — ${trimmed.replace(/^(re:\s*)?/i, "")}`;
+    case "C":
+      return `${trimmed.replace(/[.?]+$/, "")}?`;
+    default:
+      return trimmed;
+  }
+}
 
 export async function ensureSubjectLineExperiment(
   db: Db,

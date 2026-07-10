@@ -41,6 +41,7 @@ import {
 } from "./integrations.js";
 import { notify } from "./notify.js";
 import {
+  applySubjectVariant,
   ensureSubjectLineExperiment,
   pickSubjectVariant,
   recordReplyConversion,
@@ -415,13 +416,12 @@ export async function outreachJob(
     };
     const draft = await runAgent(db, copyInput);
 
-    const experimentId = await ensureSubjectLineExperiment(
-      db,
-      campaignId,
-      draft.subject ?? sequence.subjectTemplate,
-    );
+    const draftSubject = draft.subject ?? sequence.subjectTemplate;
+    const experimentId = await ensureSubjectLineExperiment(db, campaignId, draftSubject);
     const variant = await pickSubjectVariant(db, experimentId);
-    const subject = variant?.subject ?? draft.subject ?? sequence.subjectTemplate;
+    // Apply the variant's *style* to this contact's own subject — never reuse
+    // the stored subject text, which was written for a different company.
+    const subject = variant ? applySubjectVariant(variant.label, draftSubject) : draftSubject;
 
     if (draft.requiresApproval) {
       await db.approvals.create({

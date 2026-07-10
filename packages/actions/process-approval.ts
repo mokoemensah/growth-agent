@@ -1,5 +1,5 @@
 import type { Db } from "../../apps/api/src/jobs/db.js";
-import { triggerOutreach } from "./trigger-outreach";
+import { triggerOutreach } from "./trigger-outreach.js";
 
 export async function processApproval(
   db: Db,

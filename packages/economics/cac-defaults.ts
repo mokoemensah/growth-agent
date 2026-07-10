@@ -4,7 +4,7 @@ import {
   DEFAULT_GLOBAL_CAC,
   parseGlobalCacDefaults,
   type GlobalCacDefaults,
-} from "./cac";
+} from "./cac.js";
 
 const MEMORY_KEY = "cac_global_defaults";
 

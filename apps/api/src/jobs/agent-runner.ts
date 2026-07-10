@@ -3,7 +3,16 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
 
-import type { AgentInput, AgentOutput } from "../../../../packages/schemas/index.js";
+import type {
+  AgentInput,
+  AgentOutput,
+  CopywriterOutput,
+  LeadScorerOutput,
+  QualifierOutput,
+  ReplyClassifierOutput,
+  ResearcherOutput,
+  StrategistOutput,
+} from "../../../../packages/schemas/index.js";
 import {
   AgentInputSchema,
   QualifierOutputSchema,
@@ -29,10 +38,24 @@ const MODEL_BY_AGENT: Record<AgentInput["agentId"], string> = {
   strategist: "anthropic/claude-sonnet-4",
 };
 
+type AgentOutputFor<T extends AgentInput> = T extends { agentId: "researcher" }
+  ? ResearcherOutput
+  : T extends { agentId: "lead_scorer" }
+    ? LeadScorerOutput
+    : T extends { agentId: "copywriter" }
+      ? CopywriterOutput
+      : T extends { agentId: "reply_classifier" }
+        ? ReplyClassifierOutput
+        : T extends { agentId: "qualifier" }
+          ? QualifierOutput
+          : T extends { agentId: "strategist" }
+            ? StrategistOutput
+            : AgentOutput;
+
 export async function runAgent<T extends AgentInput>(
   db: Db,
   input: T,
-): Promise<AgentOutput> {
+): Promise<AgentOutputFor<T>> {
   const parsed = AgentInputSchema.parse(input);
   const started = Date.now();
   const productSlug = "productSlug" in parsed ? parsed.productSlug : undefined;
@@ -50,7 +73,7 @@ export async function runAgent<T extends AgentInput>(
     responseFormat: "json",
   });
 
-  const output = parseAgentOutput(parsed.agentId, raw, parsed);
+  const output = parseAgentOutput(parsed, raw);
 
   await db.auditLog.create({
     agentId: parsed.agentId,
@@ -68,15 +91,11 @@ export async function runAgent<T extends AgentInput>(
     policyDecision: "allow",
   });
 
-  return output;
+  return output as AgentOutputFor<T>;
 }
 
-function parseAgentOutput(
-  agentId: AgentInput["agentId"],
-  raw: { json: unknown },
-  input: AgentInput,
-): AgentOutput {
-  switch (agentId) {
+function parseAgentOutput(input: AgentInput, raw: { json: unknown }): AgentOutput {
+  switch (input.agentId) {
     case "researcher":
       return coerceResearcherOutput(raw.json, input);
     case "lead_scorer":
@@ -84,16 +103,13 @@ function parseAgentOutput(
     case "copywriter":
       return coerceCopywriterOutput(raw.json);
     case "reply_classifier":
-      return coerceReplyClassifierOutput(
-        raw.json,
-        input.agentId === "reply_classifier" ? input.inboundBody : undefined,
-      );
+      return coerceReplyClassifierOutput(raw.json, input.inboundBody);
     case "qualifier":
       return QualifierOutputSchema.parse(raw.json);
     case "strategist":
       return StrategistOutputSchema.parse(raw.json);
     default: {
-      const _exhaustive: never = agentId;
+      const _exhaustive: never = input;
       return _exhaustive;
     }
   }

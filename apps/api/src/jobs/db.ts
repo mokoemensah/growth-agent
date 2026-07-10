@@ -570,13 +570,21 @@ export function createDb(databaseUrl: string): Db {
     },
 
     async findQueuedForCampaign(campaignId, limit) {
+      // Honor the sequence step's delay_days so a contact who was just emailed
+      // isn't immediately eligible for the next step in the same day.
       const rows = await sql<ContactRow[]>`
         SELECT c.* FROM contacts c
         INNER JOIN campaign_contacts cc ON cc.contact_id = c.id
+        LEFT JOIN sequences s
+          ON s.campaign_id = cc.campaign_id AND s.step_number = cc.sequence_step
         WHERE cc.campaign_id = ${campaignId}
           AND c.status = 'queued'
           AND NOT c.do_not_contact
           AND cc.completed_at IS NULL
+          AND (
+            c.last_contacted_at IS NULL
+            OR c.last_contacted_at < now() - make_interval(days => GREATEST(COALESCE(s.delay_days, 0), 1))
+          )
         ORDER BY cc.enrolled_at ASC
         LIMIT ${limit}
       `;
